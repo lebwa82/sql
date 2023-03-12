@@ -1,0 +1,69 @@
+/*Молодяков Константин ВИтальевич(702)
+Лабораторная работа №2.
+Вариант 5.
+Задача 3.
+
+Выдает список авторов с указанием ученой степени. Если автор защитил кандидатскую и докторскую диссертации по одному разделу, то он является доктором наук. Если разделы разные, то ученые степени перечисляются через запятую (например, 'кандидат экономических наук, доктор технических наук').
+*/
+
+
+create or replace
+procedure avt is
+  --Авторы
+  cursor c1 is select * from "Авторы" order by "Авторы"."Код_А" DESC;
+  
+  --Работы автора
+  cursor c2 (n2 number) is select * from "Диссертации","Научные_направления","Разделы_науки" 
+  where "Диссертации"."Автор"=n2 and 
+  "Научные_направления"."Код"="Диссертации"."Научное_направление" and 
+  "Разделы_науки"."Шифр"="Научные_направления"."Раздел_науки";
+  
+  --Докторские работы автора по определенному разделу науки 
+  cursor c3 (n31 number, n32 number) is select count(*) from "Диссертации","Научные_направления","Разделы_науки" 
+  where "Диссертации"."Автор"=n31 and 
+  "Научные_направления"."Код"="Диссертации"."Научное_направление" and 
+  "Разделы_науки"."Шифр"=n32 and
+  "Диссертации"."Тип" LIKE '%Докторская%';
+    
+  --переменные 
+  v_c3_n	number(3);
+  zv varchar(200);
+  v_c1_o c1%ROWTYPE;
+  
+  --исключения
+  EMPTY_TABLE exception;
+begin
+	open c1;	
+	if (c1%NOTFOUND) then
+		RAISE EMPTY_TABLE;
+	end if;
+	close c1;
+	
+	--Авторы	
+	for v_c1 in c1 loop		
+		zv:=v_c1."ФИО";
+		for v_c2 in c2(v_c1."Код_А") loop
+      if(v_c2."Тип"  LIKE '%Докторская%') then
+        zv:=zv||' '||ScientificDegree(v_c2."Тип", v_c2."Название_раздела")||',';
+      end if;
+       if(v_c2."Тип"  LIKE '%Кандидатская%') then
+        open c3(v_c1."Код_А",v_c2."Шифр");
+        fetch c3 into v_c3_n;
+        if(v_c3_n=0) then
+          zv:=zv||' '||ScientificDegree(v_c2."Тип", v_c2."Название_раздела")||',';
+        end if;
+        close c3;
+      end if;
+		end loop;
+    dbms_output.put_line(rtrim(zv,','));
+	end loop;	
+  
+  
+exception
+	when EMPTY_TABLE then
+		dbms_output.put_line('Error! Empty Table');
+  when PROGRAM_ERROR then
+		dbms_output.put_line('Error! Program error');
+  when OTHERS then
+		dbms_output.put_line('Error!');
+end;

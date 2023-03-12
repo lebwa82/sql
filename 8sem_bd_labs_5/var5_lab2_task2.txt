@@ -1,0 +1,57 @@
+/*Молодяков Константин ВИтальевич(702)
+Лабораторная работа №2.
+Вариант 5.
+Задача 2.
+
+Процедура поиска авторов, которые внесены в таблицу "Авторы" дважды. Идентификация автора происходит по совпадению ФИО и даты рождения (паспортные данные могут измениться). Если при этом диссертации (кандидатская и докторская) защищены по одному направлению, то это один и тот же человек. Данные о нем объединяются: в таблице "Авторы" остается одна строка с большим значением идентификатора.
+*/
+
+create or replace
+procedure avtrep is
+  --Авторы
+  cursor c1 is select * from "Авторы" order by "Авторы"."Код_А" DESC;
+  
+  --Авторы с одинаковыми ФИО и датой рождения 
+  cursor c2 (n21 varchar, n22 date, n23 number) is select * from "Авторы" where "Авторы"."Код_А"<>n23 and "Авторы"."ФИО"=n21 and "Авторы"."Дата_рождения"=n22;
+  
+  --Диссертации автора с большим номером
+  cursor c3 (n3 number) is select * from "Диссертации" where "Диссертации"."Автор"=n3;
+  --Диссертации автора с такойже датой рождения и ФИО
+  cursor c4 (n4 number) is select * from "Диссертации" where "Диссертации"."Автор"=n4;
+  --переменные
+  v_c1_o c1%ROWTYPE;
+  
+  --исключения
+  EMPTY_TABLE exception;
+begin
+  open c1;	
+  fetch c1 into v_c1_o;
+	if(c1%NOTFOUND)then
+		RAISE EMPTY_TABLE;
+	end if;
+	close c1;
+	
+	--Авторы	
+	for v_c1 in c1 loop
+		for v_c2 in c2(v_c1."ФИО",v_c1."Дата_рождения",v_c1."Код_А") loop
+			for v_c3 in c3(v_c1."Код_А") loop
+				for v_c4 in c4(v_c2."Код_А") loop 
+					if((v_c3."Научное_направление"=v_c4."Научное_направление") and (v_c3."Тип"<>v_c4."Тип")) then 
+							update "Диссертации" set "Диссертации"."Автор" = v_c1."Код_А" 
+								where "Диссертации"."Автор"=v_c2."Код_А";
+							delete from "Авторы" where "Авторы"."Код_А"=v_c2."Код_А";
+					end if;
+				end loop;
+			end loop;		
+		end loop;
+	end loop;	
+  
+  
+exception
+	when EMPTY_TABLE then
+		dbms_output.put_line('Error! Empty Table');
+  when PROGRAM_ERROR then
+		dbms_output.put_line('Error! Program error');
+  when OTHERS then
+		dbms_output.put_line('Error!');
+end;

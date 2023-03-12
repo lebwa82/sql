@@ -1,0 +1,53 @@
+/*Молодяков Константин ВИтальевич(702)
+Лабораторная работа №1.
+Вариант 5.
+Задача 1.
+
+Функция, преобразующая значение ФИО в фамилию с инициалами (например, "Иванов Иван Сергеевич" в "Иванов И.С."). При невозможности преобразования функция возвращает строку '#############'.*/
+
+
+-- описание
+CREATE OR REPLACE FUNCTION short_name(v_string IN varchar)
+	return	varchar 
+
+is
+-- переменные
+
+	v_string1	varchar(100) := v_string;
+	sirname		varchar(20);
+	name		varchar(20);
+	fath_name	varchar(20);
+	position	int;
+
+begin
+-- тело функции
+
+	v_string1 := ltrim(v_string1);	
+	
+	position:=instr(v_string1,' ',1,1);
+	if(position = 0) then
+		return '#############';--ошибка
+	end if;
+
+	sirname:=substr(v_string1,1,position);
+	
+	v_string1 := ltrim(substr(v_string1,position + 1));
+
+	position:=instr(v_string1,' ',1,1);
+
+	if(position = 0) then
+		return '#############';--ошибка
+	end if;
+
+	name:=substr(v_string1,1,position-1);
+	
+	v_string1 := ltrim(substr(v_string1,position));
+		
+	fath_name:= v_string1;
+
+	if(fath_name is null) then
+		return '#############';--ошибка
+	end if;
+
+	return sirname||substr(name,1,1)||'.'||substr(fath_name,1,1)||'.';				
+end; -- конец

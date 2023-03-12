@@ -1,0 +1,36 @@
+/*Молодяков Константин ВИтальевич(702)
+Лабораторная работа №1.
+Вариант 5.
+Задача 2.
+
+2.	Функция, выдающая полное название учетной степени по параметрам "Тип" и "Раздел науки". Например, для типа "докторская" и раздела "Технические науки" функция должна вернуть "доктор технических наук".
+*/
+
+create or replace
+FUNCTION ScientificDegree(TypeOfResearch IN varchar, DivisionOfScience IN varchar)
+	return	varchar 
+
+is
+--переменные
+	TOF varchar(100):=TypeOfResearch;
+	DOS varchar(100):=DivisionOfScience;
+	position	int;
+
+begin
+--тело функции
+	
+	--"Кандитаская" на "кандидат"
+	TOF := lower(replace(TOF,' '));		
+	position:=length(TOF);
+	position:=instr(TOF,'ская',position-4,1);
+
+	if(position != 0) then
+		TOF:=substr(TOF,1,position-1);
+	end if;
+	
+	--"Технические науки" на "технических наук"
+	DOS:=replace(replace(lower(ltrim(rtrim(DOS))),'ие ','их '),'науки','наук');
+
+	return TOF||' '||DOS;
+--конец				
+end;

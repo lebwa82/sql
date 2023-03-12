@@ -1,0 +1,71 @@
+/*Молодяков Константин ВИтальевич(702)
+Лабораторная работа №2.
+Вариант 5.
+Задача 1.
+
+Процедура, выдающая отчет по диссертациям, защищенным в текущем году:
+Раздел1
+Направление1
+ФИО1	    дата защиты	название диссертации
+ФИО2	    дата защиты	название диссертации
+…
+Направление2
+ФИО1	    дата защиты	название диссертации
+…
+Раздел2
+Направление1
+ФИО1	    дата защиты	название диссертации
+…
+Сначала для каждого научного направления выводятся данные о докторских диссертациях, затем – о кандидатских.
+*/
+
+
+
+create or replace
+procedure dissertation_report is
+  --Разделы
+  cursor c1 is select * from "Разделы_науки";
+  --Направления 
+  cursor c2 (n2 number) is select * from "Научные_направления" where "Научные_направления"."Раздел_науки"=n2;
+  --Диссертации
+  cursor c3 (n3 number) is select * from "Диссертации" where trunc("Диссертации"."Дата_защиты",'yyyy') = trunc(sysdate,'yyyy') and "Диссертации"."Научное_направление"=n3 order by "Диссертации"."Тип";
+  --Авторы
+  cursor c4 (n4 number) is select "ФИО" from "Авторы" where "Авторы"."Код_А"=n4;
+ 
+  --переменные
+  v_c4_fio "Авторы"."ФИО"%TYPE;
+  
+  --исключения
+  EMPTY_TABLE exception;
+begin
+	open c1;	
+	if(c1%NOTFOUND)then
+		RAISE EMPTY_TABLE;
+	end if;
+	close c1;
+	
+	--цикл по разделам	
+	for v_c1 in c1 loop
+		dbms_output.put_line(v_c1."Название_раздела");
+		--цикл по направлениям
+		for v_c2 in c2(v_c1."Шифр") loop
+			dbms_output.put_line('  '||v_c2."Название");
+			--цикл по диссертациям 
+			for v_c3 in c3(v_c2."Код") loop
+				open c4(v_c3."Автор");
+				fetch c4 into v_c4_fio;
+				dbms_output.put_line('    '||rpad(v_c4_fio,40)||rpad(TO_CHAR(v_c3."Дата_защиты"),15)||(v_c3."Тип"));
+				close c4;
+			end loop;
+		end loop;
+	end loop;	
+  
+  
+exception
+	when EMPTY_TABLE then
+		dbms_output.put_line('Error! Empty Table');
+  when PROGRAM_ERROR then
+    dbms_output.put_line('Error! Program error');
+  when OTHERS then
+		dbms_output.put_line('Error!');
+end;
