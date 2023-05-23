@@ -1,0 +1,195 @@
+/*
+Парфенов Дмитрий Алексеевич(903)
+Лабораторная работа №2.
+Вариант 12.
+
+1.	Процедура, выдающая отчет по диссертациям, защищенным в текущем году:
+Раздел1
+Направление1
+ФИО1	    дата защиты	название диссертации
+ФИО2	    дата защиты	название диссертации
+…
+Направление2
+ФИО1	    дата защиты	название диссертации
+…
+Раздел2
+Направление1
+ФИО1	    дата защиты	название диссертации
+…
+Сначала для каждого научного направления выводятся данные о докторских диссертациях, затем – о кандидатских.
+*/
+
+create or replace function dissertation_report
+(dis_year int default extract(year from current_date), out res char(30)) as $$
+declare
+  --Разделы
+  c1 cursor for select * from sections_of_science;
+  --Направления 
+  c2 cursor (n2 int) for select * from scientific_field where scientific_field.science_section=n2;
+  --Диссертации
+  c3 cursor (n3 int) for select * from dissertations 
+  where extract(year from dissertations.approve_day) = dis_year
+  and dissertations.science_field=n3 order by dissertations.dissertation_type;
+  --Авторы
+  c4 cursor (n4 int) for select full_name from authors where authors.id=n4;
+ 
+  --переменные
+  v_c4_fio authors.full_name%TYPE;
+  
+begin
+
+	--цикл по разделам	
+	for v_c1 in c1 loop
+		RAISE NOTICE '%', v_c1.section_name;
+		--цикл по направлениям
+		for v_c2 in c2(v_c1.cipher) loop
+			RAISE NOTICE '    %', v_c2.field_name;
+			--цикл по диссертациям 
+			for v_c3 in c3(v_c2.code) loop
+				open c4(v_c3.author);
+				fetch c4 into v_c4_fio;
+				RAISE NOTICE '    %', '    '||rpad(get_initials(v_c4_fio),20)||rpad(TO_CHAR(v_c3.approve_day, 'yyymmdd'),15)||(v_c3.dissertation_type);
+				close c4;
+			end loop;
+		end loop;
+	end loop;	
+	res = 'OK';
+	EXCEPTION WHEN OTHERS 
+	THEN
+    res = 'ERROR';
+	end
+$$ language plpgsql;
+
+
+select dissertation_report(2020);
+
+
+
+/* 2.
+Процедура поиска авторов, которые внесены в таблицу "Авторы" дважды. 
+Идентификация автора происходит по совпадению ФИО и даты рождения 
+(паспортные данные могут измениться). Если при этом диссертации 
+(кандидатская и докторская) защищены по одному направлению, то это один и тот же человек.
+ Данные о нем объединяются: в таблице "Авторы" остается одна строка с большим 
+ значением идентификатора.
+*/
+
+create or replace function avtrep(out res char(20)) as $$
+declare
+  --Авторы
+  c1 cursor for select * from authors order by id DESC;
+  --Авторы с одинаковыми ФИО и датой рождения 
+  c2 cursor (n21 varchar, n22 date, n23 int) for select * from authors 
+  where authors.id != n23 and authors.full_name=n21 and authors.date_of_birth =n22; 
+  --Диссертации автора с большим номером
+  c3 cursor (n3 int) for select * from dissertations where dissertations.author=n3;
+  --Диссертации автора с такойже датой рождения и ФИО
+  c4 cursor  (n4 int) is select * from dissertations where dissertations.author=n4;
+  --переменные
+  v_c1_o authors%ROWTYPE;
+begin
+	open c1;	
+	fetch c1 into v_c1_o;
+	close c1;
+	--Авторы	
+	for v_c1 in c1 loop
+		for v_c2 in c2(v_c1.full_name,v_c1.date_of_birth,v_c1.id) loop
+			for v_c3 in c3(v_c1.id) loop
+				for v_c4 in c4(v_c2.id) loop 
+					if((v_c3.science_field=v_c4.science_field) and (v_c3.dissertation_type!=v_c4.dissertation_type)) then 
+							update dissertations set author = v_c1.id 
+								where author=v_c2.id;
+							delete from authors where authors.id=v_c2.id;
+					end if;
+				end loop;
+			end loop;		
+		end loop;
+	end loop;	
+end;
+$$ language plpgsql;
+
+select avtrep()
+
+
+INSERT INTO authors
+values 
+(default,'Поспелов Иван Николаевич', '2005-6-7', 'м', '455555555', '1900-1-22');
+select * from authors a 
+
+select * from dissertations
+INSERT INTO dissertations
+values
+(default, 885, 6, 'Изучение зерна 4.0', 'докторская', '2023-2-6', 
+'сельскохозяйственный универ', '2023-9-11', '402')
+
+/* 3.
+Выдает список авторов с указанием ученой степени. 
+Если автор защитил кандидатскую и докторскую диссертации по одному разделу, 
+то он является доктором наук. Если разделы разные, то ученые степени перечисляются 
+через запятую (например, 'кандидат экономических наук, доктор технических наук').
+*/
+
+create or replace function avt(out res char(20)) as $$
+declare
+  --Авторы
+  c1 cursor for select * from authors order by authors.id DESC;
+  
+  --Работы автора
+  c2 cursor (n2 int) for select * from dissertations,scientific_field,sections_of_science 
+  where dissertations.author=n2 and 
+  scientific_field.code=dissertations.science_field and 
+  sections_of_science.cipher=scientific_field.science_section;
+  
+  --Докторские работы автора по определенному разделу науки 
+  c3 cursor (n31 int, n32 int) for select count(*) from dissertations,scientific_field,sections_of_science 
+  where dissertations.author=n31 and 
+  scientific_field.code=dissertations.science_field and 
+  sections_of_science.cipher=n32 and
+  dissertations.dissertation_type = 'докторская';
+    
+  --переменные 
+  v_c3_n int;
+  zv char(200);
+  v_c1_o authors%ROWTYPE;
+  
+
+begin
+	--Авторы	
+	for v_c1 in c1 loop		
+		zv:=v_c1.full_name;
+		for v_c2 in c2(v_c1.id) loop
+      		if(v_c2.dissertation_type = 'докторская') then
+        		zv:=zv||' '||get_full_name(v_c2.dissertation_type, v_c2.field_name)||',';
+      		end if;
+       		if(v_c2.dissertation_type = 'кандидатская') then
+        		open c3(v_c1.id,v_c2.cipher);
+        		fetch c3 into v_c3_n;
+        		if(v_c3_n=0) then
+          			zv:=zv||' '||get_full_name(v_c2.dissertation_type, v_c2.field_name)||',';
+        		end if;
+        		close c3;
+      		end if;
+		end loop;
+    RAISE NOTICE '%', zv;
+	end loop;	
+  
+end;
+$$ language plpgsql;
+
+
+select avt()
+
+create or replace function print_func(out res char(20)) as $$
+declare
+	zv char(200);
+begin
+	zv = '';
+	zv = zv||get_full_name('докторская', 'астрологические науки');--||',';
+	RAISE NOTICE 'zv = %', zv;
+end;
+$$ language plpgsql;
+
+
+select print_func()
+select get_full_name('докторская', 'технические науки')
+

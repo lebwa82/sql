@@ -17,7 +17,7 @@ begin
     exit when ind%notfound;
     str_out:=index_name||'(';
     
-		EXECUTE 'select column_name from dba_ind_columns where table_name=$1 and index_name=$2'
+		EXECUTE 'select column_name from pg_indexes where tablename=$1 and indexname=$2'
 		INTO col
 		using table_name, index_name;
 		loop fetch col into column_name;
@@ -25,12 +25,18 @@ begin
 			str_out:=str_out||column_name||',';
 		end loop;
     
-    dbms_output.put_line(rtrim(str_out,',')||')');
+    --dbms_output.put_line(rtrim(str_out,',')||')');
+   	RAISE NOTICE '%,)', str_out;
 	end loop;
 end;
 $$ language plpgsql;
 
+select cursors_and_fields('authors')
+
+
+
 select indexname from pg_indexes where tablename = 'authors'
+select column_name from pg_indexes where tablename='authors' and indexname='authors_pkey'
 
 create or replace function print_func(out res char(20)) as $$
 declare
@@ -48,4 +54,8 @@ $$ language plpgsql;
 
 select print_func()
 select column_name from dba_ind_columns where table_name=$1 and index_name=$2
+
+select * from pg_indexes
+select * from pg_index
+
 

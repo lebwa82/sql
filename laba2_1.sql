@@ -8,24 +8,14 @@ declare
   --Диссертации
   c3 cursor (n3 int) for select * from dissertations 
   where extract(year from dissertations.approve_day) = dis_year
-  and 
-  dissertations.science_field=n3
-  order by dissertations.dissertation_type;
+  and dissertations.science_field=n3 order by dissertations.dissertation_type;
   --Авторы
   c4 cursor (n4 int) for select full_name from authors where authors.id=n4;
  
   --переменные
   v_c4_fio authors.full_name%TYPE;
   
-  --исключения
-  --EMPTY_TABLE exception;
 begin
-	open c1;	
-	--if(c1%NOTFOUND)then
-	--	RAISE EXCEPTION 'Нет рейсов на дату';
-	--end if;
-	close c1;
-	
 
 	--цикл по разделам	
 	for v_c1 in c1 loop
@@ -43,7 +33,10 @@ begin
 		end loop;
 	end loop;	
 	res = 'OK';
-end
+	EXCEPTION WHEN OTHERS 
+	THEN
+    res = 'ERROR';
+	end
 $$ language plpgsql;
 
 
